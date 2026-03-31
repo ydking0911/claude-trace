@@ -1,2 +1,3 @@
 # claude-trace
-Real-time visual tracer for Claude Code — watch tool calls as a live node graph in your terminal
+See what Claude Code is doing — real-time node graph & progress tracker in your terminal
+
