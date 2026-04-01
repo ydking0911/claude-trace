@@ -1,0 +1,52 @@
+{
+  "name": "claude-trace",
+  "version": "1.0.0",
+  "description": "Real-time TUI visualization of Claude Code tool execution — see every tool call, live.",
+  "main": "dist/index.js",
+  "bin": {
+    "claude-trace": "./bin/claude-trace.sh"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "prepare": "npm run build"
+  },
+  "files": [
+    "dist/",
+    "bin/",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "blessed-contrib": "^4.11.0"
+  },
+  "devDependencies": {
+    "@types/blessed": "^0.1.25",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "tui",
+    "visualization",
+    "terminal",
+    "developer-tools",
+    "ai",
+    "anthropic"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ydking0911/claude-trace.git"
+  },
+  "homepage": "https://github.com/ydking0911/claude-trace#readme",
+  "bugs": {
+    "url": "https://github.com/ydking0911/claude-trace/issues"
+  }
+}

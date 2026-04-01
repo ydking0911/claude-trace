@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# TypeScript
+*.tsbuildinfo
+*.d.ts.map
+
+# Logs
+*.log
+npm-debug.log*
+npm-error.log*
+yarn-debug.log*
+yarn-error.log*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Claude Code — runtime hook injection artifacts
+.claude/settings.json.bak
+
+# Sprite generation temp files
+scripts/tmp/
+scripts/*.png
+scripts/*.gif
+
+# Test coverage (for future use)
+coverage/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+.claude/
