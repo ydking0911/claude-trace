@@ -52,7 +52,7 @@ export function createLayout(): LayoutWidgets {
     top: 1,
     left: 0,
     width: '100%-22',
-    height: '100%-6',
+    height: '100%-8',
     scrollable: true,
     alwaysScroll: true,
     keys: true,
@@ -72,7 +72,7 @@ export function createLayout(): LayoutWidgets {
   // Progress bar row
   const progressBox = blessed.box({
     parent: screen,
-    bottom: 3,
+    bottom: 5,
     left: 0,
     width: '100%',
     height: 1,
@@ -90,7 +90,7 @@ export function createLayout(): LayoutWidgets {
     bottom: 0,
     left: 0,
     width: '100%',
-    height: 3,
+    height: 5,
     border: {
       type: 'line',
     },

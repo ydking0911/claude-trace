@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { scanHistoricalTokens, scanWeeklyTokens } from './tokenStore';
 
 // ─── Event Types ─────────────────────────────────────────────────────────────
 
@@ -139,19 +140,46 @@ export interface StoreStats {
   totalTools: number;
   completedTools: number;
   failedTools: number;
-  tokenUsage: number;
+  tokenUsage: number;        // historical + session output tokens (for level bar)
   estimatedCost: number;
   elapsedMs: number;
+  sessionInputTokens: number; // current context window usage (input + cache tokens)
+  weeklyTokens: number;       // output_tokens accumulated this calendar week
+  weeklyResetMs: number;      // ms until next Monday 00:00 UTC
 }
 
 // ─── EventStore ───────────────────────────────────────────────────────────────
 
 export class EventStore extends EventEmitter {
   session: SessionNode | null = null;
+  tokenUsage = 0;
+  private historicalBase = 0;          // output_tokens summed from all past JSONL sessions
+  private sessionTokens = 0;           // output_tokens from current session transcript
+  private sessionInputTokens = 0;      // input + cache tokens (context window usage)
+  private weeklyTokens = 0;
+  private weeklyResetAt = 0; // absolute timestamp of next Monday 00:00 UTC
   private currentTurn: TurnNode | null = null;
   private toolNodeMap = new Map<string, ToolNode>(); // tool_use_id → ToolNode
   private agentMap = new Map<string, AgentNode>(); // agent_id → AgentNode
   private sessionStartTime = 0;
+  private transcriptPath: string | null = null;
+
+  constructor() {
+    super();
+    void this.loadStartupData();
+  }
+
+  private async loadStartupData(): Promise<void> {
+    const [historical, weekly] = await Promise.all([
+      scanHistoricalTokens(),
+      scanWeeklyTokens(),
+    ]);
+    this.historicalBase = historical;
+    this.weeklyTokens = weekly.outputTokens;
+    this.weeklyResetAt = Date.now() + weekly.resetMs;
+    this.tokenUsage = this.historicalBase + this.sessionTokens;
+    this.emit('update');
+  }
 
   handleEvent(event: HookEvent): void {
     switch (event.hook_event_name) {
@@ -201,6 +229,11 @@ export class EventStore extends EventEmitter {
 
   private onUserPromptSubmit(event: UserPromptSubmitEvent): void {
     if (!this.session) this.initSession(event.session_id);
+
+    if (event.transcript_path) {
+      this.transcriptPath = event.transcript_path;
+      void this.readTokensFromTranscript();
+    }
 
     const turn: TurnNode = {
       id: `turn-${Date.now()}`,
@@ -267,6 +300,10 @@ export class EventStore extends EventEmitter {
       node.status = 'success';
       node.endTime = Date.now();
     }
+    if (event.transcript_path) {
+      this.transcriptPath = event.transcript_path;
+      void this.readTokensFromTranscript();
+    }
   }
 
   private onPostToolUseFailure(event: PostToolUseFailureEvent): void {
@@ -322,8 +359,57 @@ export class EventStore extends EventEmitter {
     }
   }
 
-  private onSessionEnd(_event: BaseHookInput): void {
+  private onSessionEnd(event: BaseHookInput): void {
+    if (event.transcript_path) {
+      this.transcriptPath = event.transcript_path;
+    }
+    void this.readTokensFromTranscript();
     this.emit('sessionEnd');
+  }
+
+  private async readTokensFromTranscript(): Promise<void> {
+    if (!this.transcriptPath) return;
+    try {
+      const { readFile } = await import('fs/promises');
+      const content = await readFile(this.transcriptPath, 'utf-8');
+      let sessionOutputTokens = 0;
+      let lastContextTokens = 0; // input + cache_creation + cache_read from last assistant msg
+
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const entry = JSON.parse(trimmed) as unknown;
+          if (!entry || typeof entry !== 'object') continue;
+          const msg = (entry as Record<string, unknown>)['message'];
+          if (!msg || typeof msg !== 'object') continue;
+          const usage = (msg as Record<string, unknown>)['usage'];
+          if (!usage || typeof usage !== 'object') continue;
+          const u = usage as Record<string, unknown>;
+          const out = u['output_tokens'];
+          if (typeof out === 'number') sessionOutputTokens += out;
+          const inp = typeof u['input_tokens'] === 'number' ? u['input_tokens'] : 0;
+          const cacheCreate = typeof u['cache_creation_input_tokens'] === 'number' ? u['cache_creation_input_tokens'] : 0;
+          const cacheRead = typeof u['cache_read_input_tokens'] === 'number' ? u['cache_read_input_tokens'] : 0;
+          if (inp + cacheCreate + cacheRead > 0) {
+            lastContextTokens = inp + cacheCreate + cacheRead;
+          }
+        } catch {
+          // skip malformed lines
+        }
+      }
+
+      this.sessionTokens = sessionOutputTokens;
+      this.sessionInputTokens = lastContextTokens;
+
+      const total = this.historicalBase + this.sessionTokens;
+      if (total !== this.tokenUsage || lastContextTokens !== this.sessionInputTokens) {
+        this.tokenUsage = total;
+        this.emit('update');
+      }
+    } catch {
+      // transcript not accessible yet
+    }
   }
 
   private findTurnForAgent(agentId?: string): TurnNode | null {
@@ -380,9 +466,12 @@ export class EventStore extends EventEmitter {
       totalTools,
       completedTools,
       failedTools,
-      tokenUsage: 0, // Would need token events
+      tokenUsage: this.tokenUsage,
       estimatedCost: 0,
       elapsedMs: this.sessionStartTime ? Date.now() - this.sessionStartTime : 0,
+      sessionInputTokens: this.sessionInputTokens,
+      weeklyTokens: this.weeklyTokens,
+      weeklyResetMs: this.weeklyResetAt ? Math.max(0, this.weeklyResetAt - Date.now()) : 0,
     };
   }
 }
