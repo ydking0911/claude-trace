@@ -18,6 +18,13 @@ export const theme = {
   text: '#F3F4F6',      // bright white
   dimmed: '#6B7280',    // gray
   muted: '#4B5563',     // darker gray
+
+  // Token level bar
+  skyBlue: '#87CEEB',
+
+  // Limit bars
+  orange: '#F97316',
+  lightGreen: '#86EFAC',
 } as const;
 
 export const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
