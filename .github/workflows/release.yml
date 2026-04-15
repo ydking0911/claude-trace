@@ -54,7 +54,7 @@ jobs:
       - name: Publish to npm
         run: npm publish --verbose
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} # 2FA 포함 토큰 
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Configure git
         run: |
