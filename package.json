@@ -1,6 +1,6 @@
 {
   "name": "claude-trace",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Real-time TUI visualization of Claude Code tool execution — see every tool call, live.",
   "main": "dist/index.js",
   "bin": {
