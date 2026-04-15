@@ -1,11 +1,11 @@
 import { EventServer } from './server';
 import { EventStore } from './store';
-import { SettingsPatch } from './hooks/settingsPatch';
+import { SettingsPatch } from './patches/settingsPatch';
 import { createLayout } from './ui/layout';
 import { updateNodeTree, tickSpinner } from './ui/nodeTree';
 import { updateProgressBar } from './ui/progressBar';
 import { updateStatsFooter } from './ui/statsFooter';
-import { SpriteAnimator, updateSpritePanel, nodeStatusToSpriteState, toolCountToEmotion } from './ui/spritePanel';
+import { SpriteAnimator, updateSpritePanel, resolveSprite } from './ui/spritePanel';
 import { checkForUpdate, runUpdate, getCurrentVersion } from './updater';
 
 const RENDER_INTERVAL_MS = 100;
@@ -105,14 +105,8 @@ async function main() {
     const stats = store.getStats();
     const session = store.session;
 
-    // Determine sprite state from current tool activity
-    const hasRunning = stats.totalTools > stats.completedTools + stats.failedTools;
-    const spriteState = hasRunning
-      ? nodeStatusToSpriteState('running')
-      : session
-        ? nodeStatusToSpriteState('success')
-        : 'idle';
-    const spriteEmotion = toolCountToEmotion(stats.completedTools, stats.failedTools);
+    const hasRunning = stats.runningTools > 0;
+    const { state: spriteState, emotion: spriteEmotion } = resolveSprite(stats, session, hasRunning);
 
     updateNodeTree(nodeTreeBox, session);
     updateProgressBar(progressBox, stats);

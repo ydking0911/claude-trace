@@ -1,22 +1,35 @@
 import * as blessed from 'blessed';
-import { getSprite, stateFps, SpriteState, SpriteEmotion } from './sprites';
-import { NodeStatus } from '../store';
+import { getSprite, stateFps, SpriteState, SpriteEmotion } from './sprites/index';
+import { SessionNode, StoreStats } from '../store';
 
-// ─── State mapping ─────────────────────────────────────────────────────────
+const SLEEPING_THRESHOLD_MS = 60_000; // 60s idle → sleeping
 
-export function nodeStatusToSpriteState(status: NodeStatus): SpriteState {
-  switch (status) {
-    case 'running': return 'working';
-    case 'pending': return 'waiting';
-    case 'failed':  return 'idle';
-    case 'denied':  return 'idle';
-    case 'success': return 'idle';
-    case 'agent':   return 'working';
-    default:        return 'idle';
-  }
+// ─── State resolution (single source of truth) ────────────────────────────
+
+export function resolveSprite(
+  stats: StoreStats,
+  session: SessionNode | null,
+  hasRunning: boolean,
+): { state: SpriteState; emotion: SpriteEmotion } {
+  const emotion = resolveEmotion(stats.completedTools, stats.failedTools);
+
+  if (stats.isCompacting) return { state: 'compacting', emotion };
+
+  if (hasRunning) return { state: 'working', emotion };
+
+  // Responding: Claude generating text between UserPromptSubmit → first PreToolUse
+  if (stats.isResponding) return { state: 'waiting', emotion: 'neutral' };
+
+  // Done flash: 3s after all tools complete — emotion from the last tool's outcome
+  if (stats.justFinishedTools) return { state: 'idle', emotion: stats.lastToolFailed ? 'sad' : 'happy' };
+
+  // Sleeping: no session, or 60s+ without any event
+  if (!session || stats.idleSinceMs > SLEEPING_THRESHOLD_MS) return { state: 'sleeping', emotion: 'neutral' };
+
+  return { state: 'idle', emotion };
 }
 
-export function toolCountToEmotion(completed: number, failed: number): SpriteEmotion {
+function resolveEmotion(completed: number, failed: number): SpriteEmotion {
   if (failed > 0) return 'sad';
   if (completed > 5) return 'happy';
   return 'neutral';
