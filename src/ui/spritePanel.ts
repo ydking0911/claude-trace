@@ -20,8 +20,8 @@ export function resolveSprite(
   // Responding: Claude generating text between UserPromptSubmit → first PreToolUse
   if (stats.isResponding) return { state: 'waiting', emotion: 'neutral' };
 
-  // Done flash: 3s after last tool completed
-  if (stats.justFinishedTools) return { state: 'idle', emotion: stats.failedTools > 0 ? 'sad' : 'happy' };
+  // Done flash: 3s after all tools complete — emotion from the last tool's outcome
+  if (stats.justFinishedTools) return { state: 'idle', emotion: stats.lastToolFailed ? 'sad' : 'happy' };
 
   // Sleeping: no session, or 60s+ without any event
   if (!session || stats.idleSinceMs > SLEEPING_THRESHOLD_MS) return { state: 'sleeping', emotion: 'neutral' };

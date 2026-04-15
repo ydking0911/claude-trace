@@ -41,9 +41,11 @@ export class EventStore extends EventEmitter {
   private transcriptPath: string | null = null;
   // ─── Sprite signal state ──────────────────────────────────────────────────
   private lastEventTime = 0;
-  private _isResponding = false;  // set on UserPromptSubmit, cleared on first PreToolUse
-  private _isCompacting = false;  // set on PreToolUse(compact), cleared on PostToolUse
-  private lastToolCompleteTime = 0; // updated on every PostToolUse
+  private _isResponding = false;    // set on UserPromptSubmit, cleared on first PreToolUse
+  private _isCompacting = false;    // set on PreToolUse(compact), cleared on PostToolUse
+  private lastToolCompleteTime = 0; // updated on every PostToolUse / PostToolUseFailure
+  private _runningTools = 0;        // incremented on PreToolUse, decremented on PostToolUse
+  private _lastToolFailed = false;  // outcome of the most recently completed tool
 
   constructor() {
     super();
@@ -63,6 +65,9 @@ export class EventStore extends EventEmitter {
   }
 
   handleEvent(event: HookEvent): void {
+    // Update idle clock for every event — prevents false sleeping during any activity
+    this.lastEventTime = Date.now();
+
     switch (event.hook_event_name) {
       case 'SessionStart':
         this.onSessionStart(event);
@@ -91,6 +96,10 @@ export class EventStore extends EventEmitter {
       case 'SubagentStop':
         this.onSubagentStop(event as SubagentStopEvent);
         break;
+      case 'TaskCreated':
+      case 'TaskCompleted':
+        // lastEventTime already updated above; no tree mutation needed
+        break;
       case 'SessionEnd':
         this.onSessionEnd(event);
         break;
@@ -110,7 +119,6 @@ export class EventStore extends EventEmitter {
 
   private onUserPromptSubmit(event: UserPromptSubmitEvent): void {
     if (!this.session) this.initSession(event.session_id);
-    this.lastEventTime = Date.now();
     this._isResponding = true;
 
     if (event.transcript_path) {
@@ -142,8 +150,8 @@ export class EventStore extends EventEmitter {
 
   private onPreToolUse(event: PreToolUseEvent): void {
     if (!this.session) this.initSession(event.session_id);
-    this.lastEventTime = Date.now();
     this._isResponding = false;
+    this._runningTools++;
     if (event.tool_name.toLowerCase().includes('compact')) {
       this._isCompacting = true;
     }
@@ -189,7 +197,8 @@ export class EventStore extends EventEmitter {
         this._isCompacting = false;
       }
     }
-    this.lastEventTime = Date.now();
+    this._runningTools = Math.max(0, this._runningTools - 1);
+    this._lastToolFailed = false;
     this.lastToolCompleteTime = Date.now();
     if (event.transcript_path) {
       this.transcriptPath = event.transcript_path;
@@ -206,7 +215,8 @@ export class EventStore extends EventEmitter {
         this._isCompacting = false;
       }
     }
-    this.lastEventTime = Date.now();
+    this._runningTools = Math.max(0, this._runningTools - 1);
+    this._lastToolFailed = true;
     this.lastToolCompleteTime = Date.now();
   }
 
@@ -371,9 +381,12 @@ export class EventStore extends EventEmitter {
       idleSinceMs: this.lastEventTime > 0 ? now - this.lastEventTime : 0,
       isResponding: this._isResponding,
       isCompacting: this._isCompacting,
+      runningTools: this._runningTools,
+      lastToolFailed: this._lastToolFailed,
       justFinishedTools:
         this.lastToolCompleteTime > 0 &&
         now - this.lastToolCompleteTime < DONE_FLASH_MS &&
+        this._runningTools === 0 &&   // all tools done, not mid-turn
         !this._isResponding,
     };
   }

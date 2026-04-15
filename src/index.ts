@@ -105,7 +105,7 @@ async function main() {
     const stats = store.getStats();
     const session = store.session;
 
-    const hasRunning = stats.totalTools > stats.completedTools + stats.failedTools;
+    const hasRunning = stats.runningTools > 0;
     const { state: spriteState, emotion: spriteEmotion } = resolveSprite(stats, session, hasRunning);
 
     updateNodeTree(nodeTreeBox, session);

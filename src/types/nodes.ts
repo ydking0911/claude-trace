@@ -53,5 +53,7 @@ export interface StoreStats {
   idleSinceMs: number;       // ms since last hook event (0 while active)
   isResponding: boolean;     // true between UserPromptSubmit and first PreToolUse
   isCompacting: boolean;     // true while a compact tool is running
-  justFinishedTools: boolean; // true for 3s after the last tool in a turn completes
+  justFinishedTools: boolean; // true for 3s after all running tools complete
+  runningTools: number;      // count of tools currently in 'running' state
+  lastToolFailed: boolean;   // outcome of the most recently completed tool
 }
