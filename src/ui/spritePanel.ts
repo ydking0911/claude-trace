@@ -1,5 +1,5 @@
 import * as blessed from 'blessed';
-import { getSprite, stateFps, SpriteState, SpriteEmotion } from './sprites';
+import { getSprite, stateFps, SpriteState, SpriteEmotion } from './sprites/index';
 import { SessionNode, StoreStats } from '../store';
 
 const SLEEPING_THRESHOLD_MS = 60_000; // 60s idle → sleeping

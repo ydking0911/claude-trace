@@ -1,6 +1,6 @@
 import { EventServer } from './server';
 import { EventStore } from './store';
-import { SettingsPatch } from './hooks/settingsPatch';
+import { SettingsPatch } from './patches/settingsPatch';
 import { createLayout } from './ui/layout';
 import { updateNodeTree, tickSpinner } from './ui/nodeTree';
 import { updateProgressBar } from './ui/progressBar';
