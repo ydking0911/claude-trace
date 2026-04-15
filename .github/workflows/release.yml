@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 concurrency:
   group: release-main
@@ -23,7 +22,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: 'npm'
@@ -47,6 +46,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Publish to npm
+        run: npm publish
+
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
@@ -58,9 +60,6 @@ jobs:
           git commit -m "chore: release ${{ steps.version.outputs.tag }} [skip ci]"
           git tag -a "${{ steps.version.outputs.tag }}" -m "${{ steps.version.outputs.tag }}"
           git push origin HEAD:main --follow-tags
-
-      - name: Publish to npm
-        run: npm publish --access public
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
