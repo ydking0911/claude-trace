@@ -46,8 +46,14 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Show publish environment
+        run: |
+          node -v
+          npm -v
+          npm config get registry
+
       - name: Publish to npm
-        run: npm publish
+        run: npm publish --verbose
 
       - name: Configure git
         run: |
