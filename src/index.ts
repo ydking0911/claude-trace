@@ -1,15 +1,39 @@
 import { EventServer } from './server';
 import { EventStore } from './store';
-import { SettingsPatch } from './hooks/settingsPatch';
+import { SettingsPatch } from './patches/settingsPatch';
 import { createLayout } from './ui/layout';
 import { updateNodeTree, tickSpinner } from './ui/nodeTree';
 import { updateProgressBar } from './ui/progressBar';
 import { updateStatsFooter } from './ui/statsFooter';
-import { SpriteAnimator, updateSpritePanel, nodeStatusToSpriteState, toolCountToEmotion } from './ui/spritePanel';
+import { SpriteAnimator, updateSpritePanel, resolveSprite } from './ui/spritePanel';
+import { checkForUpdate, runUpdate, getCurrentVersion } from './updater';
 
 const RENDER_INTERVAL_MS = 100;
 const PREFERRED_PORT = parseInt(process.env.CLAUDE_TRACE_PORT || '7337', 10);
 const PROJECT_DIR = process.env.CLAUDE_TRACE_PROJECT_DIR || process.cwd();
+
+type HeaderState = 'normal' | 'update-available' | 'updating' | 'updated' | 'update-failed';
+
+function buildHeaderContent(
+  port: number,
+  currentVersion: string,
+  headerState: HeaderState,
+  latestVersion?: string,
+): string {
+  const base = ` ◈ claude-trace  v${currentVersion}    port: ${port}`;
+  switch (headerState) {
+    case 'update-available':
+      return `${base}    \x1b[33m↑ v${latestVersion} available\x1b[0m  [y] update  [q] quit`;
+    case 'updating':
+      return `${base}    \x1b[36m⠸ updating to v${latestVersion}...\x1b[0m  [q] quit`;
+    case 'updated':
+      return `${base}    \x1b[32m✓ updated to v${latestVersion} — restart to apply\x1b[0m  [q] quit`;
+    case 'update-failed':
+      return `${base}    \x1b[31m✗ update failed — run: npm i -g claude-trace\x1b[0m  [q] quit`;
+    default:
+      return `${base}    [q] quit`;
+  }
+}
 
 async function main() {
   // 1. Start HTTP event server
@@ -34,8 +58,42 @@ async function main() {
   // 4. Build TUI
   const { screen, header, nodeTreeBox, spriteBox, progressBox, statsBox } = createLayout();
 
-  // Update header with session info and port
-  header.setContent(` ◈ claude-trace  v1.0.0    port: ${port}    [q] quit`);
+  // ─── Update checker ──────────────────────────────────────────────────────
+  let headerState: HeaderState = 'normal';
+  let latestVersion: string | undefined;
+  const currentVersion = getCurrentVersion();
+
+  // Set header immediately (no network wait)
+  header.setContent(buildHeaderContent(port, currentVersion, headerState, latestVersion));
+
+  // Check for updates in background — does not block startup
+  checkForUpdate().then((info) => {
+    if (!info.hasUpdate) return;
+    latestVersion = info.latestVersion;
+    headerState = 'update-available';
+    header.setContent(buildHeaderContent(port, currentVersion, headerState, latestVersion));
+    screen.render();
+  }).catch(() => { /* ignore network errors */ });
+
+  // [y] — trigger update when one is available
+  screen.key(['y'], () => {
+    if (headerState !== 'update-available') return;
+    headerState = 'updating';
+    header.setContent(buildHeaderContent(port, currentVersion, headerState, latestVersion));
+    screen.render();
+
+    runUpdate()
+      .then(() => {
+        headerState = 'updated';
+        header.setContent(buildHeaderContent(port, currentVersion, headerState, latestVersion));
+        screen.render();
+      })
+      .catch(() => {
+        headerState = 'update-failed';
+        header.setContent(buildHeaderContent(port, currentVersion, headerState, latestVersion));
+        screen.render();
+      });
+  });
 
   // 5. Sprite animator
   const animator = new SpriteAnimator();
@@ -47,14 +105,8 @@ async function main() {
     const stats = store.getStats();
     const session = store.session;
 
-    // Determine sprite state from current tool activity
-    const hasRunning = stats.totalTools > stats.completedTools + stats.failedTools;
-    const spriteState = hasRunning
-      ? nodeStatusToSpriteState('running')
-      : session
-        ? nodeStatusToSpriteState('success')
-        : 'idle';
-    const spriteEmotion = toolCountToEmotion(stats.completedTools, stats.failedTools);
+    const hasRunning = stats.runningTools > 0;
+    const { state: spriteState, emotion: spriteEmotion } = resolveSprite(stats, session, hasRunning);
 
     updateNodeTree(nodeTreeBox, session);
     updateProgressBar(progressBox, stats);

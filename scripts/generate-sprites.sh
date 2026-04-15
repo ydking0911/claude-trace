@@ -6,7 +6,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-OUTPUT_TS="$ROOT_DIR/src/ui/sprites.ts"
+OUTPUT_TS="$ROOT_DIR/src/ui/sprites/data.ts"
 SHEETS_DIR="/tmp/notchi_sheets"
 FRAMES_DIR="/tmp/notchi_frames"
 BASE_URL="https://raw.githubusercontent.com/sk-ruban/notchi/main/notchi/notchi/Assets.xcassets"
@@ -135,7 +135,7 @@ print(json.dumps(s))
   done
 done
 
-# TypeScript 파일 푸터
+# TypeScript 파일 푸터 (data.ts — 프레임 데이터와 FPS만, 로직은 index.ts에)
 cat >> "$OUTPUT_TS" << 'TSEOF'
 };
 
@@ -149,23 +149,6 @@ export const stateFps: Record<SpriteState, number> = {
   waiting:    3,
   compacting: 6,
 };
-
-/**
- * Map claude-viz NodeStatus to notchi SpriteState + SpriteEmotion.
- */
-export function getSprite(
-  state: SpriteState,
-  emotion: SpriteEmotion
-): string[] | null {
-  // Fallback chain: exact → sad (for sob) → neutral
-  const exact = spriteFrames[`${state}_${emotion}`];
-  if (exact) return exact;
-  if (emotion === 'sob') {
-    const sad = spriteFrames[`${state}_sad`];
-    if (sad) return sad;
-  }
-  return spriteFrames[`${state}_neutral`] ?? null;
-}
 TSEOF
 
 echo "[3/3] Done → $OUTPUT_TS"
