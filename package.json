@@ -4,7 +4,7 @@
   "description": "Real-time TUI visualization of Claude Code tool execution — see every tool call, live.",
   "main": "dist/index.js",
   "bin": {
-    "claude-trace": "./bin/claude-trace.sh"
+    "claude-trace": "bin/claude-trace.sh"
   },
   "scripts": {
     "build": "tsc",
@@ -43,7 +43,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ydking0911/claude-trace.git"
+    "url": "git+https://github.com/ydking0911/claude-trace.git"
   },
   "homepage": "https://github.com/ydking0911/claude-trace#readme",
   "bugs": {
