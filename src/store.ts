@@ -146,6 +146,11 @@ export interface StoreStats {
   sessionInputTokens: number; // current context window usage (input + cache tokens)
   weeklyTokens: number;       // output_tokens accumulated this calendar week
   weeklyResetMs: number;      // ms until next Monday 00:00 UTC
+  // ─── Sprite signals ───────────────────────────────────────────────────────
+  idleSinceMs: number;       // ms since last hook event (0 while active)
+  isResponding: boolean;     // true between UserPromptSubmit and first PreToolUse
+  isCompacting: boolean;     // true while a compact tool is running
+  justFinishedTools: boolean; // true for 3s after the last tool in a turn completes
 }
 
 // ─── EventStore ───────────────────────────────────────────────────────────────
@@ -163,6 +168,11 @@ export class EventStore extends EventEmitter {
   private agentMap = new Map<string, AgentNode>(); // agent_id → AgentNode
   private sessionStartTime = 0;
   private transcriptPath: string | null = null;
+  // ─── Sprite signal state ──────────────────────────────────────────────────
+  private lastEventTime = 0;
+  private _isResponding = false;  // set on UserPromptSubmit, cleared on first PreToolUse
+  private _isCompacting = false;  // set on PreToolUse(compact), cleared on PostToolUse
+  private lastToolCompleteTime = 0; // updated on every PostToolUse
 
   constructor() {
     super();
@@ -229,6 +239,8 @@ export class EventStore extends EventEmitter {
 
   private onUserPromptSubmit(event: UserPromptSubmitEvent): void {
     if (!this.session) this.initSession(event.session_id);
+    this.lastEventTime = Date.now();
+    this._isResponding = true;
 
     if (event.transcript_path) {
       this.transcriptPath = event.transcript_path;
@@ -259,6 +271,11 @@ export class EventStore extends EventEmitter {
 
   private onPreToolUse(event: PreToolUseEvent): void {
     if (!this.session) this.initSession(event.session_id);
+    this.lastEventTime = Date.now();
+    this._isResponding = false;
+    if (event.tool_name.toLowerCase().includes('compact')) {
+      this._isCompacting = true;
+    }
 
     const toolNode: ToolNode = {
       id: event.tool_use_id,
@@ -299,7 +316,12 @@ export class EventStore extends EventEmitter {
     if (node) {
       node.status = 'success';
       node.endTime = Date.now();
+      if (node.toolName.toLowerCase().includes('compact')) {
+        this._isCompacting = false;
+      }
     }
+    this.lastEventTime = Date.now();
+    this.lastToolCompleteTime = Date.now();
     if (event.transcript_path) {
       this.transcriptPath = event.transcript_path;
       void this.readTokensFromTranscript();
@@ -311,7 +333,12 @@ export class EventStore extends EventEmitter {
     if (node) {
       node.status = 'failed';
       node.endTime = Date.now();
+      if (node.toolName.toLowerCase().includes('compact')) {
+        this._isCompacting = false;
+      }
     }
+    this.lastEventTime = Date.now();
+    this.lastToolCompleteTime = Date.now();
   }
 
   private onPermissionRequest(event: PermissionRequestEvent): void {
@@ -462,16 +489,25 @@ export class EventStore extends EventEmitter {
       }
     }
 
+    const now = Date.now();
+    const DONE_FLASH_MS = 3000;
     return {
       totalTools,
       completedTools,
       failedTools,
       tokenUsage: this.tokenUsage,
       estimatedCost: 0,
-      elapsedMs: this.sessionStartTime ? Date.now() - this.sessionStartTime : 0,
+      elapsedMs: this.sessionStartTime ? now - this.sessionStartTime : 0,
       sessionInputTokens: this.sessionInputTokens,
       weeklyTokens: this.weeklyTokens,
-      weeklyResetMs: this.weeklyResetAt ? Math.max(0, this.weeklyResetAt - Date.now()) : 0,
+      weeklyResetMs: this.weeklyResetAt ? Math.max(0, this.weeklyResetAt - now) : 0,
+      idleSinceMs: this.lastEventTime > 0 ? now - this.lastEventTime : 0,
+      isResponding: this._isResponding,
+      isCompacting: this._isCompacting,
+      justFinishedTools:
+        this.lastToolCompleteTime > 0 &&
+        now - this.lastToolCompleteTime < DONE_FLASH_MS &&
+        !this._isResponding,
     };
   }
 }
