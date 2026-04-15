@@ -82,23 +82,26 @@ export function updateStatsFooter(
   const sessionLabel = sessionId ? sessionId.slice(0, 12) : '—';
   const tokenBar = formatTokenLevelBar(tokenUsage);
 
-  // Line 1: session id + level bar
-  const line1 = `  {${theme.dimmed}-fg}Session{/} {${theme.text}-fg}${sessionLabel}{/}   {${theme.dimmed}-fg}Tokens{/}  ${tokenBar}`;
+  // Line 1: session id
+  const line1 = `  {${theme.dimmed}-fg}Session{/} {${theme.text}-fg}${sessionLabel}{/}`;
 
-  // Line 2: cost / elapsed / tools
-  const line2 = `  {${theme.dimmed}-fg}Cost{/} {${theme.text}-fg}$${estimatedCost.toFixed(4)}{/}   {${theme.dimmed}-fg}Elapsed{/} {${theme.text}-fg}${elapsed}{/}   {${theme.dimmed}-fg}Tools{/} {${theme.text}-fg}${totalTools}{/}`;
+  // Line 2: token level bar
+  const line2 = `  {${theme.dimmed}-fg}Token Lv.{/}  ${tokenBar}`;
 
-  // Line 3: session context window (orange)
+  // Line 3: cost / elapsed / tools
+  const line3 = `  {${theme.dimmed}-fg}Cost{/} {${theme.text}-fg}$${estimatedCost.toFixed(4)}{/}   {${theme.dimmed}-fg}Elapsed{/} {${theme.text}-fg}${elapsed}{/}   {${theme.dimmed}-fg}Tools{/} {${theme.text}-fg}${totalTools}{/}`;
+
+  // Line 4: session context window (orange)
   const sessionBar = formatLimitBar(sessionInputTokens, SESSION_CONTEXT_LIMIT, theme.orange);
   const sessionCount = `{${theme.orange}-fg}${formatCompact(sessionInputTokens)} / ${formatCompact(SESSION_CONTEXT_LIMIT)}{/}`;
   const sessionElapsed = elapsedMs > 0 ? `  {${theme.dimmed}-fg}active ${formatElapsed(elapsedMs)}{/}` : '';
-  const line3 = `  {${theme.orange}-fg}◆ Session{/}  ${sessionBar}  ${sessionCount}${sessionElapsed}`;
+  const line4 = `  {${theme.orange}-fg}◆ Session{/}  ${sessionBar}  ${sessionCount}${sessionElapsed}`;
 
-  // Line 4: weekly usage (light green)
+  // Line 5: weekly usage (light green)
   const weeklyBar = formatLimitBar(weeklyTokens, WEEKLY_TOKEN_LIMIT, theme.lightGreen);
   const weeklyCount = `{${theme.lightGreen}-fg}${formatCompact(weeklyTokens)} / ${formatCompact(WEEKLY_TOKEN_LIMIT)}{/}`;
   const resetLabel = weeklyResetMs > 0 ? `  {${theme.dimmed}-fg}resets in ${formatResetMs(weeklyResetMs)}{/}` : '';
-  const line4 = `  {${theme.lightGreen}-fg}◆ Weekly{/}   ${weeklyBar}  ${weeklyCount}${resetLabel}`;
+  const line5 = `  {${theme.lightGreen}-fg}◆ Weekly{/}   ${weeklyBar}  ${weeklyCount}${resetLabel}`;
 
-  box.setContent(`${line1}\n${line2}\n${line3}\n${line4}`);
+  box.setContent(`${line1}\n${line2}\n${line3}\n${line4}\n${line5}`);
 }
