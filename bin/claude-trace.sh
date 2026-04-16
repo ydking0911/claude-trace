@@ -71,8 +71,12 @@ done
 # Create detached tmux session (pane 0 = left)
 tmux new-session -d -s "$SESSION_NAME" -x "$(tput cols)" -y "$(tput lines)"
 
-# Split right 40% → creates pane 1
-tmux split-window -t "${SESSION_NAME}.0" -h -p 40
+# Enable mouse mode: allows pane resizing by dragging the divider
+tmux set-option -t "$SESSION_NAME" mouse on
+
+# Split right N% → creates pane 1 (default 40, override with CLAUDE_TRACE_SPLIT)
+SPLIT_PCT="${CLAUDE_TRACE_SPLIT:-40}"
+tmux split-window -t "${SESSION_NAME}.0" -h -p "$SPLIT_PCT"
 
 # Pane 1 (right): TUI — start FIRST so HTTP server + hook injection is ready
 tmux send-keys -t "${SESSION_NAME}.1" "$VIZ_CMD" Enter
