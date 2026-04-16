@@ -1,6 +1,6 @@
 # claude-trace
 
-> See every tool call Claude Code makes — live, in your terminal.
+> See every tool call Claude Code makes — live, in your terminal!
 
 Claude Code shows a spinner while it works. **claude-trace** splits your terminal and renders a real-time tree of every tool call, progress bar, token usage, and an animated pixel-art companion.
 
