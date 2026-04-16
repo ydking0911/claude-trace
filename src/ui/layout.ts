@@ -103,6 +103,9 @@ export function createLayout(): LayoutWidgets {
     tags: true,
   });
 
+  // Give the tree box focus so vi/arrow scroll keys are active immediately
+  nodeTreeBox.focus();
+
   // Keyboard bindings
   screen.key(['q', 'C-c'], () => {
     screen.destroy();
